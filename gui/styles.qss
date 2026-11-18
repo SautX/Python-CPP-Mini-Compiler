@@ -1,0 +1,66 @@
+QMainWindow {
+    background-color: #10151c;
+}
+
+QWidget {
+    color: #d5e5e5;
+    font-family: Consolas;
+    font-size: 12px;
+}
+
+QLabel#header {
+    background-color: #17232d;
+    color: #00ff99;
+    font-size: 18px;
+    font-weight: bold;
+    padding: 15px;
+    border-bottom: 2px solid #00ff99;
+}
+
+QPushButton {
+    background-color: #1c3038;
+    color: #00ff99;
+    border: 1px solid #00ff99;
+    padding: 9px 18px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #00ff99;
+    color: #10151c;
+}
+
+QPlainTextEdit {
+    background-color: #080d12;
+    color: #00ff99;
+    border: 1px solid #30434d;
+    selection-background-color: #28634f;
+}
+
+QTabWidget::pane {
+    border: 1px solid #00ff99;
+}
+
+QTabBar::tab {
+    background-color: #17232d;
+    color: #d5e5e5;
+    padding: 9px 16px;
+}
+
+QTabBar::tab:selected {
+    background-color: #24463d;
+    color: #00ff99;
+}
+
+QGroupBox {
+    border: 1px solid #00aaff;
+    margin-top: 12px;
+    padding: 10px;
+}
+
+QHeaderView::section {
+    background-color: #17232d;
+    color: #00ff99;
+    padding: 6px;
+    border: 1px solid #30434d;
+}

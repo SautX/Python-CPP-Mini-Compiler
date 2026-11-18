@@ -1,0 +1,5 @@
+# GUI Framework
+PySide6
+
+# Optional development and testing
+pytest

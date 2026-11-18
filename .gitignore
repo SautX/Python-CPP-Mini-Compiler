@@ -1,0 +1,47 @@
+
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE settings
+.vscode/
+.idea/
+
+# Generated compiler files
+generated/*.bin
+generated/*.txt
+generated/*.cpp
+
+# Compiled executable
+output/*.exe
+output/*.out
+output/*.o
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+
+# Test and coverage files
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Operating system
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
