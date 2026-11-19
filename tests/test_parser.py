@@ -1,41 +1,70 @@
 
 import unittest
 
-from compiler.lexer import Lexer
-from compiler.parser import Parser
+from compiler.frontend import Frontend
 
 
-class TestParser(unittest.TestCase):
+class TestParserAndFrontend(unittest.TestCase):
 
-    def parse(self, source):
-        lexer = Lexer(source)
-        tokens = lexer.tokenize()
-        parser = Parser(tokens)
-        return parser.parse()
+    def setUp(self):
+        self.frontend = Frontend()
 
-    def test_assignment(self):
-        result = self.parse("a = 10")
-        self.assertEqual(len(result), 1)
+    def compile_source(self, source):
+        return self.frontend.compile(source)
 
-    def test_print_statement(self):
-        result = self.parse("print(10)")
-        self.assertEqual(len(result), 1)
+    def test_integer_assignment(self):
+        result = self.compile_source("x = 10")
+        self.assertTrue(result["success"])
+
+    def test_float_assignment(self):
+        result = self.compile_source("x = 10.5")
+        self.assertTrue(result["success"])
 
     def test_arithmetic_expression(self):
-        result = self.parse("a = 10 + 20")
-        self.assertEqual(len(result), 1)
+        result = self.compile_source("x = (10 + 5) * 2")
+        self.assertTrue(result["success"])
+
+    def test_comparison_expression(self):
+        result = self.compile_source("x = 10 > 5")
+        self.assertTrue(result["success"])
+
+    def test_logical_expression(self):
+        result = self.compile_source("x = True and False")
+        self.assertTrue(result["success"])
+
+    def test_bitwise_expression(self):
+        result = self.compile_source("x = 10 & 5")
+        self.assertTrue(result["success"])
+
+    def test_shift_expression(self):
+        result = self.compile_source("x = 2 << 3")
+        self.assertTrue(result["success"])
+
+    def test_unary_expression(self):
+        result = self.compile_source("x = -10")
+        self.assertTrue(result["success"])
+
+    def test_boolean_literals(self):
+        result = self.compile_source("x = True")
+        self.assertTrue(result["success"])
+
+    def test_print_statement(self):
+        result = self.compile_source("print(10 + 20)")
+        self.assertTrue(result["success"])
+
+    def test_invalid_syntax(self):
+        result = self.compile_source("x = ")
+        self.assertFalse(result["success"])
 
     def test_multiple_statements(self):
-        result = self.parse(
-            "a = 10\n"
-            "b = 20\n"
-            "print(a + b)"
-        )
-        self.assertEqual(len(result), 3)
-
-    def test_operator_precedence(self):
-        result = self.parse("a = 10 + 20 * 2")
-        self.assertEqual(len(result), 1)
+        source = """
+a = 10
+b = 20
+c = a + b
+print(c)
+"""
+        result = self.compile_source(source)
+        self.assertTrue(result["success"])
 
 
 if __name__ == "__main__":

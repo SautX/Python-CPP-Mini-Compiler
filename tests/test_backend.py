@@ -1,39 +1,107 @@
 
 import unittest
 
-from compiler.frontend import compile_source_to_bytecode
-from compiler.backend import generate_cpp
+from compiler.frontend import Frontend
+from compiler.intermediate_code import (
+    IntermediateCodeGenerator,
+    IntermediateCodeLowerer
+)
+from compiler.optimizer import optimize_bytecode
+from architecture.virtual_machine import VirtualMachine
 
 
-class TestBackend(unittest.TestCase):
+class TestCompilerIntegration(unittest.TestCase):
 
-    def test_cpp_generation(self):
+    def compile_and_run(self, source):
+        frontend = Frontend()
+        result = frontend.compile(source)
 
-        source = """
+        if not result["success"]:
+            self.fail(f"Frontend error: {result['error']}")
+
+        generator = IntermediateCodeGenerator()
+        ir = generator.generate(result["ast"])
+
+        lowerer = IntermediateCodeLowerer()
+        program = lowerer.lower(ir)
+
+        program = optimize_bytecode(program)
+
+        vm = VirtualMachine(trace=False)
+        execution = vm.run(program)
+
+        return execution
+
+    def test_integer_arithmetic(self):
+        result = self.compile_and_run("""
+a = 20
+b = 5
+print(a + b)
+""")
+
+        self.assertEqual(result["output"], ["25"])
+
+    def test_float_arithmetic(self):
+        result = self.compile_and_run("""
+a = 2.5
+b = 1.5
+print(a + b)
+""")
+
+        self.assertAlmostEqual(float(result["output"][0]), 4.0)
+
+    def test_comparison(self):
+        result = self.compile_and_run("""
 a = 10
-b = 20
+b = 5
+print(a > b)
+""")
+
+        self.assertEqual(result["output"], ["True"])
+
+    def test_logical_operation(self):
+        result = self.compile_and_run("""
+a = True and False
+print(a)
+""")
+
+        self.assertEqual(result["output"], ["False"])
+
+    def test_bitwise_operation(self):
+        result = self.compile_and_run("""
+a = 6 & 3
+print(a)
+""")
+
+        self.assertEqual(result["output"], ["2"])
+
+    def test_shift_operation(self):
+        result = self.compile_and_run("""
+a = 2 << 3
+print(a)
+""")
+
+        self.assertEqual(result["output"], ["16"])
+
+    def test_type_conversion(self):
+        result = self.compile_and_run("""
+a = 5
+b = 2.5
 c = a + b
 print(c)
-"""
+""")
 
-        program = compile_source_to_bytecode(source)
-        cpp_code = generate_cpp(program)
+        self.assertAlmostEqual(float(result["output"][0]), 7.5)
 
-        self.assertIsInstance(cpp_code, str)
-        self.assertIn("#include", cpp_code)
-        self.assertIn("int main", cpp_code)
+    def test_multiple_operations(self):
+        result = self.compile_and_run("""
+a = 20
+b = 5
+c = (a + b) * 2
+print(c)
+""")
 
-    def test_cpp_print_generation(self):
-
-        source = """
-a = 10
-print(a)
-"""
-
-        program = compile_source_to_bytecode(source)
-        cpp_code = generate_cpp(program)
-
-        self.assertIn("cout", cpp_code)
+        self.assertEqual(result["output"], ["50"])
 
 
 if __name__ == "__main__":

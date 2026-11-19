@@ -1,95 +1,143 @@
-import ast
 
-from .parser import (
-    Number,
-    Variable,
-    BinaryOperation,
-    UnaryOperation,
-    Assignment,
-    PrintStatement
-)
+# compiler/ast_generator.py
+
+from dataclasses import dataclass, field
+from typing import Any
 
 
-BINARY_OPERATORS = {
-    "+": ast.Add,
-    "-": ast.Sub,
-    "*": ast.Mult,
-    "/": ast.Div,
-    "%": ast.Mod
-}
+@dataclass
+class ASTNode:
+    pass
 
 
-def generate_expression(node):
-
-    if isinstance(node, Number):
-
-        return ast.Constant(value=node.value)
-
-    if isinstance(node, Variable):
-
-        return ast.Name(
-            id=node.name,
-            ctx=ast.Load()
-        )
-
-    if isinstance(node, BinaryOperation):
-
-        return ast.BinOp(
-            left=generate_expression(node.left),
-            op=BINARY_OPERATORS[node.operator](),
-            right=generate_expression(node.right)
-        )
-
-    if isinstance(node, UnaryOperation):
-
-        return ast.UnaryOp(
-            op=ast.USub(),
-            operand=generate_expression(node.operand)
-        )
-
-    raise TypeError("Unsupported expression node")
+@dataclass
+class Program(ASTNode):
+    body: list = field(default_factory=list)
 
 
-def generate_statement(node):
+@dataclass
+class Assignment(ASTNode):
+    name: str
+    value: ASTNode
 
-    if isinstance(node, Assignment):
 
-        return ast.Assign(
-            targets=[
-                ast.Name(
-                    id=node.name,
-                    ctx=ast.Store()
-                )
-            ],
-            value=generate_expression(node.value)
-        )
+@dataclass
+class Print(ASTNode):
+    arguments: list
 
-    if isinstance(node, PrintStatement):
 
-        return ast.Expr(
-            value=ast.Call(
-                func=ast.Name(
-                    id="print",
-                    ctx=ast.Load()
-                ),
-                args=[
-                    generate_expression(node.value)
-                ],
-                keywords=[]
+@dataclass
+class ExpressionStatement(ASTNode):
+    expression: ASTNode
+
+
+@dataclass
+class IntegerLiteral(ASTNode):
+    value: int
+
+
+@dataclass
+class FloatLiteral(ASTNode):
+    value: float
+
+
+@dataclass
+class BooleanLiteral(ASTNode):
+    value: bool
+
+
+@dataclass
+class Identifier(ASTNode):
+    name: str
+
+
+@dataclass
+class UnaryExpression(ASTNode):
+    operator: str
+    operand: ASTNode
+
+
+@dataclass
+class BinaryExpression(ASTNode):
+    operator: str
+    left: ASTNode
+    right: ASTNode
+
+
+class ASTGenerator:
+
+    def generate(self, parsed_data):
+        if not isinstance(parsed_data, dict):
+            raise TypeError("Expected parser dictionary")
+
+        node_type = parsed_data.get("type")
+
+        if node_type == "Program":
+            return Program(
+                body=[
+                    self.generate(statement)
+                    for statement in parsed_data["body"]
+                ]
             )
+
+        if node_type == "Assignment":
+            return Assignment(
+                name=parsed_data["name"],
+                value=self.generate(parsed_data["value"])
+            )
+
+        if node_type == "Print":
+            return Print(
+                arguments=[
+                    self.generate(argument)
+                    for argument in parsed_data["arguments"]
+                ]
+            )
+
+        if node_type == "ExpressionStatement":
+            return ExpressionStatement(
+                expression=self.generate(
+                    parsed_data["expression"]
+                )
+            )
+
+        if node_type == "IntegerLiteral":
+            return IntegerLiteral(
+                value=int(parsed_data["value"])
+            )
+
+        if node_type == "FloatLiteral":
+            return FloatLiteral(
+                value=float(parsed_data["value"])
+            )
+
+        if node_type == "BooleanLiteral":
+            return BooleanLiteral(
+                value=bool(parsed_data["value"])
+            )
+
+        if node_type == "Identifier":
+            return Identifier(
+                name=parsed_data["name"]
+            )
+
+        if node_type == "UnaryExpression":
+            return UnaryExpression(
+                operator=parsed_data["operator"],
+                operand=self.generate(parsed_data["operand"])
+            )
+
+        if node_type == "BinaryExpression":
+            return BinaryExpression(
+                operator=parsed_data["operator"],
+                left=self.generate(parsed_data["left"]),
+                right=self.generate(parsed_data["right"])
+            )
+
+        raise ValueError(
+            f"Unknown AST node type: {node_type}"
         )
 
-    raise TypeError("Unsupported statement")
 
-
-def generate_ast(statements):
-
-    module = ast.Module(
-        body=[
-            generate_statement(statement)
-            for statement in statements
-        ],
-        type_ignores=[]
-    )
-
-    return ast.fix_missing_locations(module)
+def generate_ast(parsed_data):
+    return ASTGenerator().generate(parsed_data)

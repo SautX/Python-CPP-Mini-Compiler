@@ -1,131 +1,126 @@
 
-class Memory:
+class MemoryError(Exception):
+    pass
 
+
+class Memory:
     def __init__(
         self,
-        constants=None,
-        variables=None,
-        stack_size=1024
+        data_size=65536,
+        stack_size=65536,
+        instruction_size=65536
     ):
-
-        self.constants = list(constants or [])
-
-        self.variables = list(variables or [])
-
-        self.stack = []
-
+        self.data_size = data_size
         self.stack_size = stack_size
+        self.instruction_size = instruction_size
 
-        self.data_memory = {}
+        self.data = [None] * data_size
+        self.stack = []
+        self.instructions = []
 
-    # --------------------------------------
-    # Constant Pool
-    # --------------------------------------
+        self.variables = {}
 
-    def load_constant(self, address):
+    # ---------------- DATA MEMORY ----------------
 
-        if not 0 <= address < len(self.constants):
+    def read(self, address):
+        self._check_address(address, self.data_size)
+        return self.data[address]
 
-            raise IndexError(
-                "Invalid constant memory address"
-            )
+    def write(self, address, value):
+        self._check_address(address, self.data_size)
+        self.data[address] = value
 
-        return self.constants[address]
-
-    # --------------------------------------
-    # Variable Memory
-    # --------------------------------------
-
-    def load_variable(self, address):
-
-        if not 0 <= address < len(self.variables):
-
-            raise IndexError(
-                "Invalid variable address"
-            )
-
-        return self.variables[address]
-
-    def store_variable(self, address, value):
-
-        if not 0 <= address < len(self.variables):
-
-            raise IndexError(
-                "Invalid variable address"
-            )
-
-        self.variables[address] = value
-
-    # --------------------------------------
-    # Stack Operations
-    # --------------------------------------
+    # ---------------- STACK MEMORY ----------------
 
     def push(self, value):
-
         if len(self.stack) >= self.stack_size:
-
-            raise OverflowError(
-                "Stack memory overflow"
-            )
+            raise MemoryError("Stack overflow.")
 
         self.stack.append(value)
 
     def pop(self):
-
         if not self.stack:
-
-            raise RuntimeError(
-                "Stack underflow"
-            )
+            raise MemoryError("Stack underflow.")
 
         return self.stack.pop()
 
     def peek(self):
-
         if not self.stack:
-
-            raise RuntimeError(
-                "Stack is empty"
-            )
+            raise MemoryError("Stack is empty.")
 
         return self.stack[-1]
 
-    # --------------------------------------
-    # Data Memory
-    # --------------------------------------
+    def stack_size_used(self):
+        return len(self.stack)
 
-    def write_memory(self, address, value):
-
-        if address < 0:
-            raise ValueError("Invalid memory address")
-
-        self.data_memory[address] = value
-
-    def read_memory(self, address):
-
-        if address < 0:
-            raise ValueError("Invalid memory address")
-
-        return self.data_memory.get(address, 0)
-
-    # --------------------------------------
-    # Memory Status
-    # --------------------------------------
-
-    def display(self):
-
-        print("\n========== MEMORY STATUS ==========")
-
-        print("Constants:", self.constants)
-
-        print("Variables:", self.variables)
-
-        print("Stack:", self.stack)
-
-        print("Data Memory:", self.data_memory)
-
-        print("===================================")
-
-    def reset_stack(self):
-
+    def clear_stack(self):
         self.stack.clear()
+
+    # ---------------- INSTRUCTION MEMORY ----------------
+
+    def load_instructions(self, instructions):
+        if len(instructions) > self.instruction_size:
+            raise MemoryError("Instruction memory capacity exceeded.")
+
+        self.instructions = list(instructions)
+
+    def fetch_instruction(self, address):
+        if not isinstance(address, int):
+            raise MemoryError("Instruction address must be an integer.")
+
+        if address < 0 or address >= len(self.instructions):
+            raise MemoryError(
+                f"Invalid instruction address: {address}"
+            )
+
+        return self.instructions[address]
+
+    # ---------------- VARIABLE STORAGE ----------------
+
+    def store_variable(self, name, value):
+        self.variables[name] = value
+
+    def load_variable(self, name):
+        if name not in self.variables:
+            raise MemoryError(f"Undefined variable: {name}")
+
+        return self.variables[name]
+
+    # ---------------- UTILITIES ----------------
+
+    @staticmethod
+    def _check_address(address, size):
+        if not isinstance(address, int):
+            raise MemoryError("Memory address must be an integer.")
+
+        if address < 0 or address >= size:
+            raise MemoryError(
+                f"Memory address out of range: {address}"
+            )
+
+    def reset(self):
+        self.data = [None] * self.data_size
+        self.stack.clear()
+        self.instructions.clear()
+        self.variables.clear()
+
+    def display_stack(self):
+        print("\n========== STACK ==========")
+
+        if not self.stack:
+            print("(empty)")
+        else:
+            for index, value in enumerate(reversed(self.stack)):
+                print(f"STACK[{len(self.stack) - 1 - index}] = {value}")
+
+        print("===========================\n")
+
+    def display_memory(self, start=0, count=10):
+        end = min(start + count, self.data_size)
+
+        print("\n========== DATA MEMORY ==========")
+
+        for address in range(start, end):
+            print(f"MEM[{address}] = {self.data[address]}")
+
+        print("=================================\n")

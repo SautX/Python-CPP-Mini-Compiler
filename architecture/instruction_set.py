@@ -1,110 +1,99 @@
 
+from enum import IntEnum
 from dataclasses import dataclass
 
 
-# ==========================================
-# 24-BIT PROCESSOR INSTRUCTION SET
-# ==========================================
+class Opcode(IntEnum):
+    HALT = 0x00
+    POP = 0x01
 
-OPCODES = {
-    "NOP":        0x00,
-    "LOAD_CONST": 0x01,
-    "STORE_VAR":  0x02,
-    "LOAD_VAR":   0x03,
+    LOAD_INT = 0x02
+    LOAD_FLOAT = 0x03
+    LOAD_BOOL = 0x04
+    LOAD_VAR = 0x05
+    STORE_VAR = 0x06
 
-    "ADD":        0x04,
-    "SUB":        0x05,
-    "MUL":        0x06,
-    "DIV":        0x07,
-    "MOD":        0x08,
+    ADD_INT = 0x10
+    SUB_INT = 0x11
+    MUL_INT = 0x12
+    DIV_INT = 0x13
+    FLOOR_DIV_INT = 0x14
+    MOD_INT = 0x15
+    POWER_INT = 0x16
 
-    "PRINT":      0x09,
-    "HALT":       0x0A,
-    "NEG":        0x0B,
+    ADD_FLOAT = 0x20
+    SUB_FLOAT = 0x21
+    MUL_FLOAT = 0x22
+    DIV_FLOAT = 0x23
+    FLOOR_DIV_FLOAT = 0x24
+    MOD_FLOAT = 0x25
+    POWER_FLOAT = 0x26
 
-    "AND":        0x0C,
-    "OR":         0x0D,
-    "XOR":        0x0E,
-    "NOT":        0x0F,
+    CMP_EQ = 0x30
+    CMP_NE = 0x31
+    CMP_LT = 0x32
+    CMP_GT = 0x33
+    CMP_LE = 0x34
+    CMP_GE = 0x35
 
-    "SHL":        0x10,
-    "SHR":        0x11,
+    TO_BOOL = 0x40
+    LOGICAL_AND = 0x41
+    LOGICAL_OR = 0x42
+    LOGICAL_NOT = 0x43
 
-    "CMP":        0x12,
-    "JMP":        0x13,
-    "JZ":         0x14,
-    "JNZ":        0x15
-}
+    BIT_AND = 0x50
+    BIT_OR = 0x51
+    BIT_XOR = 0x52
+    BIT_NOT = 0x53
+    LSHIFT = 0x54
+    RSHIFT = 0x55
 
+    NEG = 0x60
+    POS = 0x61
 
-REVERSE_OPCODES = {
-    value: key
-    for key, value in OPCODES.items()
-}
+    INT_TO_FLOAT = 0x70
+    FLOAT_TO_INT = 0x71
+
+    JUMP = 0x80
+    JUMP_IF_FALSE = 0x81
+    JUMP_IF_TRUE = 0x82
+
+    PRINT_INT = 0x90
+    PRINT_FLOAT = 0x91
+    PRINT_BOOL = 0x92
 
 
 @dataclass
-class Instruction:
-
-    opcode: str
+class MachineInstruction:
+    opcode: Opcode
     operand: int = 0
 
     def __post_init__(self):
+        self.opcode = Opcode(self.opcode)
 
-        if self.opcode not in OPCODES:
-            raise ValueError(
-                f"Invalid opcode: {self.opcode}"
-            )
+        if not isinstance(self.operand, int):
+            raise TypeError("Instruction operand must be an integer.")
 
         if not 0 <= self.operand <= 0xFFFF:
-            raise ValueError(
-                "Operand must be between 0 and 65535"
-            )
+            raise ValueError("Operand must fit in 16 bits.")
 
-    def encode(self):
-
-        return (
-            (OPCODES[self.opcode] << 16)
-            | self.operand
-        )
-
-    def to_bytes(self):
-
-        return self.encode().to_bytes(
-            3,
-            byteorder="big"
-        )
-
-    def to_binary(self):
-
-        return f"{self.encode():024b}"
-
-    def to_hex(self):
-
-        return f"0x{self.encode():06X}"
+    def encode(self) -> bytes:
+        return self.opcode.to_bytes(1, "big") + self.operand.to_bytes(2, "big")
 
     @classmethod
-    def decode(cls, value):
+    def decode(cls, data: bytes):
+        if len(data) != 3:
+            raise ValueError("An instruction must contain exactly 3 bytes.")
 
-        opcode_value = (value >> 16) & 0xFF
-        operand = value & 0xFFFF
+        opcode = Opcode(data[0])
+        operand = int.from_bytes(data[1:3], "big")
 
-        if opcode_value not in REVERSE_OPCODES:
-            raise ValueError("Unknown opcode")
+        return cls(opcode, operand)
 
-        return cls(
-            REVERSE_OPCODES[opcode_value],
-            operand
-        )
+    def __str__(self):
+        return f"{self.opcode.name:<16} {self.operand:5d}"
 
 
-def decode_bytes(data):
-
-    if len(data) != 3:
-        raise ValueError(
-            "A 24-bit instruction requires 3 bytes"
-        )
-
-    value = int.from_bytes(data, "big")
-
-    return Instruction.decode(value)
+INSTRUCTION_SIZE = 3
+OPCODE_SIZE = 1
+OPERAND_SIZE = 2

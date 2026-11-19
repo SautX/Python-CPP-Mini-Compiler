@@ -1,165 +1,275 @@
-from .bytecode import OPCODES
+
+# compiler/backend.py
+
+import os
+import subprocess
+from pathlib import Path
+
+from .frontend import Frontend
+from .intermediate_code import (
+    IntermediateCodeGenerator,
+    IntermediateCodeLowerer,
+)
+from .optimizer import BytecodeOptimizer
+from .cpp_generator import CppGenerator
+from .bytecode import BytecodeProgram
 
 
-def generate_cpp(program):
+class BackendError(Exception):
+    pass
 
-    instructions = []
 
-    for instruction in program.instructions:
+class CompilerBackend:
 
-        instructions.append(
-            f"    {{{OPCODES[instruction.opcode]}, "
-            f"{instruction.operand}}},"
+    def __init__(self, compiler="g++"):
+        self.compiler = compiler
+
+        self.frontend = Frontend()
+        self.ir_generator = IntermediateCodeGenerator()
+        self.bytecode_lowerer = IntermediateCodeLowerer()
+
+        self.program = None
+        self.ir = None
+        self.frontend_result = None
+        self.cpp_code = None
+
+    def compile_source(self, source, optimize=True):
+        """
+        Complete source-to-bytecode pipeline.
+
+        Python source
+          -> Frontend
+          -> AST
+          -> Intermediate representation
+          -> 24-bit bytecode
+          -> Optimizer
+        """
+
+        self.frontend_result = self.frontend.compile(source)
+
+        if not self.frontend_result["success"]:
+            raise BackendError(
+                "Frontend error: "
+                + self.frontend_result["error"]
+            )
+
+        ast = self.frontend_result["ast"]
+
+        try:
+            self.ir = self.ir_generator.compile(ast)
+
+            self.program = self.bytecode_lowerer.lower(
+                self.ir
+            )
+
+            if optimize:
+                self.program = BytecodeOptimizer(
+                    self.program
+                ).optimize()
+
+        except Exception as error:
+            raise BackendError(
+                f"Backend compilation failed: {error}"
+            ) from error
+
+        return self.program
+
+    def generate_cpp(self, output_file="generated.cpp"):
+        if self.program is None:
+            raise BackendError(
+                "Compile source before generating C++"
+            )
+
+        generator = CppGenerator(self.program)
+
+        self.cpp_code = generator.generate()
+
+        output_path = Path(output_file)
+        output_path.parent.mkdir(
+            parents=True,
+            exist_ok=True
         )
 
-    constants = (
-        ", ".join(
-            str(value)
-            for value in program.constants
-        ) or "0"
-    )
+        output_path.write_text(
+            self.cpp_code,
+            encoding="utf-8"
+        )
 
-    variable_count = max(
-        1,
-        len(program.variables)
-    )
+        return str(output_path)
 
-    cpp_code = r'''
-#include <iostream>
-#include <vector>
-#include <stdexcept>
-#include <cstdint>
+    def compile_cpp(
+        self,
+        cpp_file="generated.cpp",
+        executable="executable.exe",
+        extra_flags=None,
+    ):
+        cpp_path = Path(cpp_file)
 
-using namespace std;
+        if not cpp_path.exists():
+            raise BackendError(
+                f"C++ source file not found: {cpp_file}"
+            )
 
-struct Instruction {
-    uint8_t opcode;
-    uint16_t operand;
-};
+        executable_path = Path(executable)
+        executable_path.parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
 
-int main() {
+        command = [
+            self.compiler,
+            "-std=c++17",
+            "-O2",
+            str(cpp_path),
+            "-o",
+            str(executable_path),
+        ]
 
-    const long long constants[] = {
-''' + constants + r'''
-    };
+        if extra_flags:
+            command[1:1] = list(extra_flags)
 
-    const Instruction program[] = {
-''' + "\n".join(instructions) + r'''
-    };
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
-    vector<long long> stack;
+        except FileNotFoundError as error:
+            raise BackendError(
+                f"C++ compiler not found: {self.compiler}. "
+                "Install GCC and add its bin directory to PATH."
+            ) from error
 
-    vector<long long> variables(''' + str(variable_count) + r''', 0);
+        if result.returncode != 0:
+            raise BackendError(
+                "C++ compilation failed:\n"
+                + result.stderr
+            )
 
-    auto pop = [&]() -> long long {
-
-        if (stack.empty())
-            throw runtime_error("Stack underflow");
-
-        long long value = stack.back();
-
-        stack.pop_back();
-
-        return value;
-    };
-
-    const size_t count =
-        sizeof(program) / sizeof(program[0]);
-
-    try {
-
-        for (size_t pc = 0; pc < count; pc++) {
-
-            Instruction ins = program[pc];
-
-            switch (ins.opcode) {
-
-                case 0x01:
-                    if (ins.operand >=
-                        sizeof(constants) / sizeof(constants[0]))
-                        throw runtime_error("Invalid constant index");
-
-                    stack.push_back(constants[ins.operand]);
-                    break;
-
-                case 0x02:
-                    variables.at(ins.operand) = pop();
-                    break;
-
-                case 0x03:
-                    stack.push_back(variables.at(ins.operand));
-                    break;
-
-                case 0x04: {
-                    long long b = pop();
-                    long long a = pop();
-                    stack.push_back(a + b);
-                    break;
-                }
-
-                case 0x05: {
-                    long long b = pop();
-                    long long a = pop();
-                    stack.push_back(a - b);
-                    break;
-                }
-
-                case 0x06: {
-                    long long b = pop();
-                    long long a = pop();
-                    stack.push_back(a * b);
-                    break;
-                }
-
-                case 0x07: {
-                    long long b = pop();
-                    long long a = pop();
-
-                    if (b == 0)
-                        throw runtime_error("Division by zero");
-
-                    stack.push_back(a / b);
-                    break;
-                }
-
-                case 0x08: {
-                    long long b = pop();
-                    long long a = pop();
-
-                    if (b == 0)
-                        throw runtime_error("Modulo by zero");
-
-                    stack.push_back(a % b);
-                    break;
-                }
-
-                case 0x09:
-                    cout << pop() << endl;
-                    break;
-
-                case 0x0A:
-                    return 0;
-
-                case 0x0B:
-                    stack.push_back(-pop());
-                    break;
-
-                default:
-                    throw runtime_error("Unknown opcode");
-            }
+        return {
+            "success": True,
+            "executable": str(executable_path),
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "command": command,
         }
 
-    }
-    catch (const exception& error) {
+    def run_executable(self, executable="executable.exe"):
+        executable_path = Path(executable)
 
-        cerr << "Runtime error: "
-             << error.what() << endl;
+        if not executable_path.exists():
+            raise BackendError(
+                f"Executable not found: {executable}"
+            )
 
-        return 1;
-    }
+        try:
+            result = subprocess.run(
+                [str(executable_path.resolve())],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
-    return 0;
-}
-'''
+        except OSError as error:
+            raise BackendError(
+                f"Unable to execute program: {error}"
+            ) from error
 
-    return cpp_code
+        return {
+            "returncode": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+
+    def build(
+        self,
+        source,
+        cpp_file="generated/generated.cpp",
+        executable="output/executable.exe",
+        optimize=True,
+    ):
+        """
+        Full pipeline:
+        Python -> Bytecode -> C++ -> Native executable.
+        """
+
+        program = self.compile_source(
+            source,
+            optimize=optimize,
+        )
+
+        cpp_path = self.generate_cpp(cpp_file)
+
+        compilation = self.compile_cpp(
+            cpp_file=cpp_path,
+            executable=executable,
+        )
+
+        return {
+            "success": True,
+            "program": program,
+            "ir": self.ir,
+            "cpp_file": cpp_path,
+            "executable": compilation["executable"],
+            "frontend": self.frontend_result,
+            "compilation": compilation,
+        }
+
+    def save_bytecode(self, filename="generated/bytecode.bin"):
+        if self.program is None:
+            raise BackendError(
+                "No bytecode program available"
+            )
+
+        path = Path(filename)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.program.save(str(path))
+
+        return str(path)
+
+    def display_ir(self):
+        if self.ir is None:
+            raise BackendError("No intermediate code available")
+
+        for index, instruction in enumerate(self.ir):
+            print(f"{index:04d}: {instruction}")
+
+    def display_bytecode(self):
+        if self.program is None:
+            raise BackendError("No bytecode available")
+
+        self.program.dump()
+
+
+def compile_to_bytecode(source, optimize=True):
+    backend = CompilerBackend()
+    return backend.compile_source(source, optimize)
+
+
+def compile_to_cpp(
+    source,
+    output_file="generated.cpp",
+    optimize=True,
+):
+    backend = CompilerBackend()
+    backend.compile_source(source, optimize)
+    return backend.generate_cpp(output_file)
+
+
+def build_executable(
+    source,
+    cpp_file="generated/generated.cpp",
+    executable="output/executable.exe",
+    optimize=True,
+):
+    backend = CompilerBackend()
+
+    return backend.build(
+        source,
+        cpp_file,
+        executable,
+        optimize,
+    )

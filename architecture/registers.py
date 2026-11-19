@@ -1,129 +1,84 @@
 
-class Registers:
+class RegisterError(Exception):
+    pass
+
+
+class RegisterFile:
+    """
+    Educational CPU register model.
+
+    PC  : Program Counter
+    SP  : Stack Pointer
+    ACC : Accumulator
+    IR  : Instruction Register
+    MAR : Memory Address Register
+    MDR : Memory Data Register
+    FLAGS: ALU status flags
+    """
 
     def __init__(self):
-
-        # General-purpose registers
-        self.general = {
-            f"R{i}": 0 for i in range(8)
-        }
-
-        # Special-purpose registers
-        self.PC = 0       # Program Counter
-        self.SP = 0       # Stack Pointer
-        self.ACC = 0      # Accumulator
-        self.IR = 0       # Instruction Register
-
-        # Processor flags
-        self.FLAGS = {
-            "ZERO": False,
-            "NEGATIVE": False,
-            "CARRY": False,
-            "OVERFLOW": False
-        }
-
-    # --------------------------------------
-    # General Register Operations
-    # --------------------------------------
-
-    def read(self, register):
-
-        if register not in self.general:
-            raise ValueError("Invalid register")
-
-        return self.general[register]
-
-    def write(self, register, value):
-
-        if register not in self.general:
-            raise ValueError("Invalid register")
-
-        self.general[register] = value
-
-    # --------------------------------------
-    # Special Register Operations
-    # --------------------------------------
-
-    def update_pc(self, value):
-
-        self.PC = value
-
-    def increment_pc(self):
-
-        self.PC += 1
-
-    def update_sp(self, value):
-
-        self.SP = value
-
-    def update_acc(self, value):
-
-        self.ACC = value
-
-    def update_ir(self, value):
-
-        self.IR = value
-
-    # --------------------------------------
-    # Flag Operations
-    # --------------------------------------
-
-    def update_flags(self, alu):
-
-        self.FLAGS["ZERO"] = alu.zero_flag
-
-        self.FLAGS["NEGATIVE"] = (
-            alu.negative_flag
-        )
-
-        self.FLAGS["CARRY"] = (
-            alu.carry_flag
-        )
-
-        self.FLAGS["OVERFLOW"] = (
-            alu.overflow_flag
-        )
-
-    def get_flag(self, flag):
-
-        return self.FLAGS.get(flag, False)
-
-    # --------------------------------------
-    # Display Register Status
-    # --------------------------------------
-
-    def display(self):
-
-        print("\n========== REGISTER STATUS ==========")
-
-        for name, value in self.general.items():
-
-            print(f"{name}: {value}")
-
-        print("-------------------------------------")
-
-        print("PC :", self.PC)
-        print("SP :", self.SP)
-        print("ACC:", self.ACC)
-        print("IR :", self.IR)
-
-        print("-------------------------------------")
-
-        for flag, value in self.FLAGS.items():
-
-            print(f"{flag}: {value}")
-
-        print("=====================================")
+        self.reset()
 
     def reset(self):
-
-        for register in self.general:
-            self.general[register] = 0
-
         self.PC = 0
         self.SP = 0
         self.ACC = 0
-        self.IR = 0
+        self.IR = None
+        self.MAR = 0
+        self.MDR = None
 
-        for flag in self.FLAGS:
-            self.FLAGS[flag] = False
+        self.FLAGS = {
+            "zero": False,
+            "negative": False,
+            "carry": False,
+            "overflow": False,
+        }
+
+    def read(self, name):
+        name = name.upper()
+
+        if not hasattr(self, name):
+            raise RegisterError(f"Unknown register: {name}")
+
+        return getattr(self, name)
+
+    def write(self, name, value):
+        name = name.upper()
+
+        if not hasattr(self, name):
+            raise RegisterError(f"Unknown register: {name}")
+
+        if name == "PC" and (
+            not isinstance(value, int) or value < 0
+        ):
+            raise RegisterError("PC must be a non-negative integer.")
+
+        if name == "SP" and (
+            not isinstance(value, int) or value < 0
+        ):
+            raise RegisterError("SP must be a non-negative integer.")
+
+        setattr(self, name, value)
+
+    def increment_pc(self):
+        self.PC += 1
+
+    def set_accumulator(self, value):
+        self.ACC = value
+
+    def set_flags(self, flags):
+        self.FLAGS.update(flags)
+
+    def get_flags(self):
+        return self.FLAGS.copy()
+
+    def display(self):
+        print("\n========== CPU REGISTERS ==========")
+        print(f"PC    : {self.PC}")
+        print(f"SP    : {self.SP}")
+        print(f"ACC   : {self.ACC}")
+        print(f"IR    : {self.IR}")
+        print(f"MAR   : {self.MAR}")
+        print(f"MDR   : {self.MDR}")
+        print(f"FLAGS : {self.FLAGS}")
+        print("===================================\n")
