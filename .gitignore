@@ -1,47 +1,122 @@
 
-
-# Python cache
+# ==========================================
+# PYTHON CACHE
+# ==========================================
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Virtual environments
+# ==========================================
+# VIRTUAL ENVIRONMENTS
+# ==========================================
 venv/
 .venv/
 env/
+ENV/
 
-# IDE settings
+# ==========================================
+# IDE SETTINGS
+# ==========================================
 .vscode/
 .idea/
+*.sublime-workspace
 
-# Generated compiler files
+# ==========================================
+# STREAMLIT CONFIGURATION
+# ==========================================
+.streamlit/secrets.toml
+
+# ==========================================
+# ENVIRONMENT VARIABLES AND SECRETS
+# ==========================================
+.env
+.env.*
+!.env.example
+
+# ==========================================
+# GENERATED COMPILER FILES
+# ==========================================
 generated/*.bin
 generated/*.txt
 generated/*.cpp
+generated/*.o
+generated/*.obj
 
-# Compiled executable
+# Keep generated directory structure
+!generated/.gitkeep
+
+# ==========================================
+# COMPILED EXECUTABLES
+# ==========================================
 output/*.exe
 output/*.out
 output/*.o
+output/*.obj
+output/*.dll
+output/*.so
+output/*.a
 
-# Python packaging
+# Keep output directory structure
+!output/.gitkeep
+
+# ==========================================
+# PYTHON PACKAGING
+# ==========================================
 build/
 dist/
 *.egg-info/
+pip-wheel-metadata/
 
-# Test and coverage files
+# ==========================================
+# TESTING AND COVERAGE
+# ==========================================
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.tox/
+.nox/
+coverage.xml
 
-# Operating system
+# ==========================================
+# MYPY AND LINTING
+# ==========================================
+.mypy_cache/
+.dmypy.json
+.pyre/
+.ruff_cache/
+
+# ==========================================
+# JUPYTER
+# ==========================================
+.ipynb_checkpoints/
+
+# ==========================================
+# OPERATING SYSTEM
+# ==========================================
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Logs
+# ==========================================
+# LOGS
+# ==========================================
 *.log
 
-# Temporary files
+# ==========================================
+# TEMPORARY FILES
+# ==========================================
 *.tmp
 *.bak
+*.swp
+*.swo
+*~
+
+# ==========================================
+# COMPILER TEMPORARY FILES
+# ==========================================
+*.pdb
+*.ilk
+*.pch
+*.gch
+*.dSYM/
